@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data outputs
+features_per_user.csv
+trust_scores.csv
+trust_scores_interpretable.csv
+
+# Models
+model_*.pkl
+
+# Local datasets (keep sample; ignore large)
+transactions.csv
+
+# OS
+.DS_Store
+Thumbs.db

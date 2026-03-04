@@ -1,0 +1,22 @@
+user_id,transaction_amount,transaction_type,timestamp,merchant_category,payment_method,location,device_type
+GW001,1450.75,income,2025-12-15 18:42:10,Ride Platform Payout,bank_transfer,Delhi,android
+GW001,220.30,expense,2025-12-16 12:05:33,Fuel,upi,Delhi,android
+GW001,95.00,expense,2025-12-17 20:15:04,Food & Drink,card,Delhi,android
+GW002,3125.60,income,2025-12-12 09:22:50,E-commerce Marketplace,bank_transfer,Mumbai,ios
+GW002,499.99,expense,2025-12-13 13:14:21,Mobile/Data,card,Mumbai,ios
+GW002,275.40,expense,2025-12-14 19:45:10,Transport,upi,Mumbai,ios
+GW003,890.00,income,2025-12-10 08:05:57,Freelance Platform,bank_transfer,Bengaluru,android
+GW003,150.00,expense,2025-12-11 14:33:29,Groceries,upi,Bengaluru,android
+GW003,60.00,expense,2025-12-11 21:10:43,Food & Drink,cash,Bengaluru,android
+GW004,1760.20,income,2025-12-09 11:02:18,Food Delivery Payout,bank_transfer,Hyderabad,android
+GW004,350.00,expense,2025-12-10 16:48:05,Utilities,bank_transfer,Hyderabad,android
+GW004,120.00,expense,2025-12-10 21:17:36,Transport,upi,Hyderabad,android
+GW005,2100.00,income,2025-12-08 10:30:44,Ride Platform Payout,bank_transfer,Pune,ios
+GW005,800.00,expense,2025-12-09 19:20:16,Rent,bank_transfer,Pune,ios
+GW005,75.00,expense,2025-12-09 21:32:08,Food & Drink,card,Pune,ios
+GW006,3500.00,income,2025-12-07 12:12:12,E-commerce Marketplace,bank_transfer,Chennai,android
+GW006,520.00,expense,2025-12-08 08:45:22,Healthcare,card,Chennai,android
+GW006,180.00,expense,2025-12-08 19:55:40,Groceries,upi,Chennai,android
+GW007,1250.00,income,2025-12-06 18:01:05,Freelance Platform,bank_transfer,Kolkata,android
+GW007,300.00,expense,2025-12-07 13:10:37,Mobile/Data,card,Kolkata,android
+GW007,95.00,expense,2025-12-07 20:47:59,Food & Drink,upi,Kolkata,android
