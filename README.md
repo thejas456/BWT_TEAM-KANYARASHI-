@@ -1,8 +1,10 @@
-# CredPulse AI
+# BWT_TEAM-KANYARASHI-
+This is a Trae AI project
 
+## CredPulse AI
 Alternative credit scoring for gig workers with interpretable, heuristic+unsupervised, and supervised TrustScore pipelines. Includes a Streamlit dashboard for CSV upload, scoring, explainability, and loan recommendation.
 
-## Features
+### Features
 - Per-user feature engineering (income consistency, savings ratio, stability, frequency)
 - Interpretable TrustScore with configurable weights
 - IsolationForest component blended with heuristics
@@ -11,7 +13,7 @@ Alternative credit scoring for gig workers with interpretable, heuristic+unsuper
 - Loan recommendation and safe EMI guidance
 - Streamlit UI with gauge, health meter, risk badge, and sidebar controls
 
-## Quickstart
+### Quickstart
 1. Install
    - `pip install -r requirements.txt`
 2. Run Dashboard
@@ -19,7 +21,7 @@ Alternative credit scoring for gig workers with interpretable, heuristic+unsuper
 3. Upload data
    - Use the sample: `sample_transactions.csv`
 
-## CLI
+### CLI
 - Feature engineering per user:
   - `python scripts/compute_user_features.py --income-threshold=1200 --relative=true --relative-factor=0.5 --freq=week`
 - Interpretable scoring:
@@ -27,7 +29,7 @@ Alternative credit scoring for gig workers with interpretable, heuristic+unsuper
 - Train supervised:
   - `python scripts/train_trust_model.py --model=rf`
 
-## Repo Structure
+### Repo Structure
 - `app.py` Streamlit dashboard
 - `src/` modules:
   - `data_loader.py`, `feature_engineering.py`, `user_features.py`
@@ -36,7 +38,7 @@ Alternative credit scoring for gig workers with interpretable, heuristic+unsuper
 - `scripts/` CLI utilities
 - `sample_transactions.csv` demo dataset
 
-## GitHub
+### GitHub
 Initialize and push:
 ```
 git init
