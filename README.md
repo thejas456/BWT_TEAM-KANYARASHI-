@@ -40,7 +40,7 @@ Using these behavioral signals, the system generates a **TrustScore (0–100)** 
 ---
 
 
-#**Live Demo:**[Click Here](http://localhost:8503/)
+#**Live Demo:**[Click Here](https://i2drskbgfcdzcqurhwte8l.streamlit.app/)
 ## Key Features
 
 ### Behavioral TrustScore
