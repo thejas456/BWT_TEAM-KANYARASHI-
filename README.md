@@ -61,8 +61,6 @@ Allows users to simulate income or expense changes and see how their TrustScore 
 
 ---
 
-#Live Demo : [click here ] (http://localhost:8502/)
-
 
 ## System Architecture
 
