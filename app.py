@@ -23,6 +23,7 @@ currency = st.sidebar.text_input('Currency symbol', value='₹')
 cap_freq = st.sidebar.slider('Frequency cap (transactions/week)', 5, 20, 10)
 g_inner = st.sidebar.slider('Gauge inner radius', 60, 120, 90)
 g_outer = st.sidebar.slider('Gauge outer radius', 100, 160, 120)
+emi_rate = st.sidebar.slider('EMI rate of monthly income', 0.1, 0.5, 0.3)
 wi_ic = st.sidebar.slider('Weight: Income Consistency', 0.0, 1.0, 0.35)
 wi_sr = st.sidebar.slider('Weight: Savings Ratio', 0.0, 1.0, 0.25)
 wi_ss = st.sidebar.slider('Weight: Spending Stability', 0.0, 1.0, 0.20)
@@ -42,6 +43,11 @@ st.markdown(
 
 st.header('Upload transaction file')
 uploaded = st.file_uploader('Upload transaction CSV', type=['csv'])
+try:
+    with open('sample_transactions.csv', 'rb') as f:
+        st.download_button('Download sample CSV', f.read(), file_name='sample_transactions.csv', mime='text/csv')
+except Exception:
+    pass
 
 st.header('Generate TrustScore')
 trigger = st.button('Generate TrustScore')
@@ -69,47 +75,89 @@ def health_meter(score, color='#2ca02c'):
     bg = alt.Chart(base[base['label'] == 'bg']).mark_bar(color='#e6e6e6').encode(x=alt.X('value', scale=alt.Scale(domain=[0, 100])), y=alt.Y('label', axis=None))
     return bg.properties(width=300, height=24) + fill.properties(width=300, height=24)
 
+def monthly_summary(df, user_id=None):
+    d = df.copy()
+    if 'date' not in d.columns:
+        return pd.DataFrame()
+    if user_id is not None and 'user_id' in d.columns:
+        d = d[d['user_id'] == user_id]
+    d['month'] = d['date'].dt.to_period('M').dt.to_timestamp()
+    credits = d[d['type'] == 'credit'].groupby('month')['amount'].sum().rename('income')
+    debits = d[d['type'] == 'debit'].groupby('month')['amount'].abs().sum().rename('expense')
+    m = pd.concat([credits, debits], axis=1).fillna(0.0)
+    m['net'] = m['income'] - m['expense']
+    m = m.reset_index()
+    return m
+
+def category_breakdown(df, user_id=None):
+    d = df.copy()
+    if user_id is not None and 'user_id' in d.columns:
+        d = d[d['user_id'] == user_id]
+    cat_col = 'category' if 'category' in d.columns else ('merchant' if 'merchant' in d.columns else None)
+    if cat_col is None:
+        return pd.DataFrame()
+    exp = d[d['type'] == 'debit']
+    agg = exp.groupby(cat_col)['amount'].abs().sum().reset_index().rename(columns={cat_col: 'category', 'amount': 'total'})
+    return agg.sort_values('total', ascending=False)
+
 if uploaded and trigger:
     df = load_transactions(uploaded)
     if method == 'Interpretable':
         ufeats = engineer_user_features(df)
-        row = ufeats.iloc[0] if len(ufeats) else pd.Series({})
+        ids = list(ufeats['user_id']) if 'user_id' in ufeats.columns else []
+        selected = st.selectbox('Select user', ids) if ids else None
+        row = ufeats[ufeats['user_id'] == selected].iloc[0] if selected is not None else (ufeats.iloc[0] if len(ufeats) else pd.Series({}))
         score = trust_score_row(row, weights=weights_interp, cap_freq=cap_freq)
         category = risk_level(score)
         eligible = loan_eligibility(score)
         color = risk_color(category)
-        st.header('Trust Overview')
-        top = st.container()
-        c1, c2 = top.columns([1, 1])
-        with c1:
-            st.altair_chart(gauge_chart(score, color), use_container_width=False)
-            st.altair_chart(health_meter(score, color), use_container_width=False)
-        with c2:
-            card = st.container()
-            with card:
+        t1, t2, t3 = st.tabs(['Overview', 'Explainability', 'Details'])
+        with t1:
+            st.header('Trust Overview')
+            top = st.container()
+            c1, c2 = top.columns([1, 1])
+            with c1:
+                st.altair_chart(gauge_chart(score, color), width='content')
+                st.altair_chart(health_meter(score, color), width='content')
+            with c2:
                 st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
                 st.metric('TrustScore', f'{score:.1f}')
                 st.markdown(f"<div class='badge' style='background:{color}'> {category} </div>", unsafe_allow_html=True)
                 st.metric('Loan Eligibility', 'Yes' if eligible else 'No')
                 st.markdown("</div>", unsafe_allow_html=True)
-        st.header('Financial health indicator')
-        if category == 'Low Risk':
-            st.success('Healthy')
-        elif category == 'Medium Risk':
-            st.warning('Needs attention')
-        else:
-            st.error('Fragile')
-        st.caption('Per-user features')
-        st.dataframe(ufeats)
-        if len(ufeats):
-            mi = float(ufeats.iloc[0].get('mean_monthly_income', 0.0))
-            lr = loan_recommend(score, mi)
-            st.caption('Loan recommendation')
-            st.write(f"Status: {lr['status']} | Max Loan: {currency}{lr['max_loan_amount']:,.0f} | Safe EMI: {currency}{lr['recommended_emi']:,.0f}")
-        st.subheader('Feature Contributions')
-        cdf = interp_contrib(row, weights=weights_interp, cap_freq=cap_freq)
-        b = alt.Chart(cdf).mark_bar().encode(x='contribution', y=alt.Y('feature', sort='-x'))
-        st.altair_chart(b, use_container_width=True)
+            st.header('Financial health indicator')
+            if category == 'Low Risk':
+                st.success('Healthy')
+            elif category == 'Medium Risk':
+                st.warning('Needs attention')
+            else:
+                st.error('Fragile')
+            st.subheader('Insights')
+            ms = monthly_summary(df, user_id=selected)
+            if len(ms):
+                fold = ms.melt(id_vars='month', value_vars=['income', 'expense', 'net'], var_name='metric', value_name='value')
+                line = alt.Chart(fold).mark_line(point=True).encode(x='month:T', y='value', color='metric')
+                st.altair_chart(line, width='stretch')
+            cb = category_breakdown(df, user_id=selected)
+            if len(cb):
+                bar = alt.Chart(cb).mark_bar().encode(x='total', y=alt.Y('category', sort='-x'))
+                st.altair_chart(bar, width='stretch')
+        with t2:
+            cdf = interp_contrib(row, weights=weights_interp, cap_freq=cap_freq)
+            b = alt.Chart(cdf).mark_bar().encode(x='contribution', y=alt.Y('feature', sort='-x'))
+            st.altair_chart(b, width='stretch')
+        with t3:
+            st.caption('Per-user features')
+            st.dataframe(ufeats)
+            if len(ufeats):
+                mi = float(row.get('mean_monthly_income', 0.0))
+                lr = loan_recommend(score, mi, rate=emi_rate)
+                st.caption('Loan recommendation')
+                st.write(f"Status: {lr['status']} | Max Loan: {currency}{lr['max_loan_amount']:,.0f} | Safe EMI: {currency}{lr['recommended_emi']:,.0f}")
+            if len(ufeats):
+                from src.interpretable_scoring import apply_scores
+                sdf = apply_scores(ufeats, weights=weights_interp, cap_freq=cap_freq)
+                st.download_button('Download all user TrustScores', sdf.to_csv(index=False).encode('utf-8'), file_name='trust_scores_interpretable.csv', mime='text/csv')
     elif method == 'Heuristic+Unsupervised':
         feats = engineer_features(df)
         model, X = train_unsupervised(df)
@@ -138,18 +186,28 @@ if uploaded and trigger:
             st.warning('Needs attention')
         else:
             st.error('Fragile')
+        st.subheader('Insights')
+        ms = monthly_summary(df)
+        if len(ms):
+            fold = ms.melt(id_vars='month', value_vars=['income', 'expense', 'net'], var_name='metric', value_name='value')
+            line = alt.Chart(fold).mark_line(point=True).encode(x='month:T', y='value', color='metric')
+            st.altair_chart(line, width='stretch')
+        cb = category_breakdown(df)
+        if len(cb):
+            bar = alt.Chart(cb).mark_bar().encode(x='total', y=alt.Y('category', sort='-x'))
+            st.altair_chart(bar, width='stretch')
         st.caption('Feature Summary')
         st.dataframe(pd.DataFrame(feats, index=['value']).T)
         st.caption('Loan recommendation')
         st.write(rec)
         mi = float(feats.get('income_mean', 0.0))
-        lr = loan_recommend(score, mi)
+        lr = loan_recommend(score, mi, rate=emi_rate)
         st.write(f"Status: {lr['status']} | Max Loan: {currency}{lr['max_loan_amount']:,.0f} | Safe EMI: {currency}{lr['recommended_emi']:,.0f}")
         st.subheader('Feature Contributions')
         parts = heuristic_contributions(feats, mscore)
         cdf = pd.DataFrame({'feature': list(parts.keys()), 'contribution': list(parts.values())})
         b = alt.Chart(cdf).mark_bar().encode(x='contribution', y=alt.Y('feature', sort='-x'))
-        st.altair_chart(b, use_container_width=True)
+        st.altair_chart(b, width='stretch')
     else:
         ufeats = engineer_user_features(df)
         cols = feature_columns(ufeats)
@@ -168,8 +226,8 @@ if uploaded and trigger:
             top = st.container()
             c1, c2 = top.columns([1, 1])
             with c1:
-                st.altair_chart(gauge_chart(score, color), use_container_width=False)
-                st.altair_chart(health_meter(score, color), use_container_width=False)
+                st.altair_chart(gauge_chart(score, color), width='content')
+                st.altair_chart(health_meter(score, color), width='content')
             with c2:
                 st.markdown("<div class='dashboard-card'>", unsafe_allow_html=True)
                 st.metric('TrustScore', f'{score:.1f}')
@@ -183,13 +241,27 @@ if uploaded and trigger:
                 st.warning('Needs attention')
             else:
                 st.error('Fragile')
+            ids = list(ufeats['user_id']) if 'user_id' in ufeats.columns else []
+            selected = st.selectbox('Select user', ids) if ids else None
+            st.subheader('Insights')
+            ms = monthly_summary(df, user_id=selected)
+            if len(ms):
+                fold = ms.melt(id_vars='month', value_vars=['income', 'expense', 'net'], var_name='metric', value_name='value')
+                line = alt.Chart(fold).mark_line(point=True).encode(x='month:T', y='value', color='metric')
+                st.altair_chart(line, width='stretch')
+            cb = category_breakdown(df, user_id=selected)
+            if len(cb):
+                bar = alt.Chart(cb).mark_bar().encode(x='total', y=alt.Y('category', sort='-x'))
+                st.altair_chart(bar, width='stretch')
             st.caption('Per-user features')
             st.dataframe(ufeats)
             if len(ufeats):
-                mi = float(ufeats.iloc[0].get('mean_monthly_income', 0.0))
-                lr = loan_recommend(score, mi)
+                row = ufeats[ufeats['user_id'] == selected].iloc[0] if selected is not None else ufeats.iloc[0]
+                mi = float(row.get('mean_monthly_income', 0.0))
+                lr = loan_recommend(score, mi, rate=emi_rate)
                 st.caption('Loan recommendation')
                 st.write(f"Status: {lr['status']} | Max Loan: {currency}{lr['max_loan_amount']:,.0f} | Safe EMI: {currency}{lr['recommended_emi']:,.0f}")
+                st.download_button('Download per-user feature table', ufeats.to_csv(index=False).encode('utf-8'), file_name='features_per_user.csv', mime='text/csv')
             st.subheader('Feature Importance')
             if hasattr(model, 'named_steps') and 'clf' in model.named_steps:
                 clf = model.named_steps['clf']
@@ -202,7 +274,7 @@ if uploaded and trigger:
                 else:
                     cdf = pd.DataFrame({'feature': cols, 'importance': [0.0 for _ in cols]})
                 b = alt.Chart(cdf).mark_bar().encode(x='importance', y=alt.Y('feature', sort='-x'))
-                st.altair_chart(b, use_container_width=True)
+                st.altair_chart(b, width='stretch')
             if hasattr(model, 'named_steps') and 'clf' in model.named_steps:
                 clf = model.named_steps['clf']
                 if hasattr(clf, 'coef_'):
@@ -215,4 +287,4 @@ if uploaded and trigger:
                     cdf_local = pd.DataFrame({'feature': cols, 'contribution': contrib})
                     st.subheader('Local Contributions (LogReg)')
                     b2 = alt.Chart(cdf_local).mark_bar().encode(x='contribution', y=alt.Y('feature', sort='-x'))
-                    st.altair_chart(b2, use_container_width=True)
+                    st.altair_chart(b2, width='stretch')

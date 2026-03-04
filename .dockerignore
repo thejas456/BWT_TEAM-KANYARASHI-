@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.venv
+__pycache__/
+model_*.pkl
+transactions.csv
+trust_scores.csv
+trust_scores_interpretable.csv
+*.log
