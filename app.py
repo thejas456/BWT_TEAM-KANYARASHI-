@@ -83,7 +83,7 @@ def monthly_summary(df, user_id=None):
         d = d[d['user_id'] == user_id]
     d['month'] = d['date'].dt.to_period('M').dt.to_timestamp()
     credits = d[d['type'] == 'credit'].groupby('month')['amount'].sum().rename('income')
-    debits = d[d['type'] == 'debit'].groupby('month')['amount'].abs().sum().rename('expense')
+    debits = d[d['type'] == 'debit'].assign(amount=lambda x: x['amount'].abs()).groupby('month')['amount'].sum().rename('expense')
     m = pd.concat([credits, debits], axis=1).fillna(0.0)
     m['net'] = m['income'] - m['expense']
     m = m.reset_index()
@@ -96,8 +96,9 @@ def category_breakdown(df, user_id=None):
     cat_col = 'category' if 'category' in d.columns else ('merchant' if 'merchant' in d.columns else None)
     if cat_col is None:
         return pd.DataFrame()
-    exp = d[d['type'] == 'debit']
-    agg = exp.groupby(cat_col)['amount'].abs().sum().reset_index().rename(columns={cat_col: 'category', 'amount': 'total'})
+    exp = d[d['type'] == 'debit'].copy()
+    exp['amount'] = exp['amount'].abs()
+    agg = exp.groupby(cat_col)['amount'].sum().reset_index().rename(columns={cat_col: 'category', 'amount': 'total'})
     return agg.sort_values('total', ascending=False)
 
 if uploaded and trigger:
